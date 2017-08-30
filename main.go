@@ -10,7 +10,7 @@ import (
 	"os"
 	"sync"
 
-	"github.ibm.com/almaden-containers/ubiquity-csi/core"
+	ubiquity_csi_core "github.ibm.com/almaden-containers/ubiquity-csi/core"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -22,7 +22,7 @@ import (
 	"github.com/IBM/ubiquity/resources"
 	"github.com/IBM/ubiquity/utils"
 	"github.com/IBM/ubiquity/utils/logs"
-	"github.com/akutz/csi-examples/gocsi/csi"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -58,9 +58,10 @@ func main() {
 	defer utils.CloseLogs(logFile)
 
 	storageAPIURL := fmt.Sprintf("http://%s:%d/ubiquity_storage", config.UbiquityServer.Address, config.UbiquityServer.Port)
-	controller, err := core.NewController(logger, storageAPIURL, config)
+	controller, err := ubiquity_csi_core.NewController(logger, "ubiquity", storageAPIURL, config)
 	if err != nil {
-		return nil, err
+		logger.Printf("error-creating-controller %#v\n", err)
+		panic(fmt.Sprintf("error-creating-controller", err))
 	}
 	s := &sp{controller: controller}
 	if err := s.Serve(ctx, l); err != nil {
@@ -91,7 +92,7 @@ type sp struct {
 	name       string
 	server     *grpc.Server
 	closed     bool
-	controller *core.Controller
+	controller *ubiquity_csi_core.Controller
 }
 
 // ServiceProvider.Serve
@@ -154,42 +155,17 @@ func (s *sp) GracefulStop(ctx context.Context) {
 //                            Controller Service                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-func (s *sp) CreateVolume(
-	ctx context.Context,
-	req *csi.CreateVolumeRequest) (
-	*csi.CreateVolumeResponse, error) {
+func (s *sp) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 
 	s.Lock()
 	defer s.Unlock()
 
-	in := &resources.CreateVolumeRequest{}
-	opts := make(map[string]interface{})
-	// set the volume size
-	if v := req.GetCapacityRange(); v != nil {
-		opts["quota"] = v.LimitBytes
-	}
-
-	// set additional options
-	params := req.GetParameters()
-	for k, v := range params {
-		opts[k] = v
-	}
-
-	in.Name = req.GetName()
-	in.Backend = req.Parameters["backend"]
-
-	volume, err := s.controller.Create(in)
+	createVolumeResponse, err := s.controller.CreateVolume(*req)
 	if err != nil {
-		return csi.Error_CreateVolumeError{ErrorCode: 1, ErrorDescription: "error creating volume"}, nil
+		return nil, err
 	}
 
-	return &csi.CreateVolumeResponse{
-		Reply: &csi.CreateVolumeResponse_Result_{
-			Result: &csi.CreateVolumeResponse_Result{
-				VolumeInfo: (volume),
-			},
-		},
-	}, nil
+	return &createVolumeResponse, nil
 }
 
 func (s *sp) DeleteVolume(
@@ -197,28 +173,17 @@ func (s *sp) DeleteVolume(
 	req *csi.DeleteVolumeRequest) (
 	*csi.DeleteVolumeResponse, error) {
 
-	id, ok := req.GetVolumeId().GetValues()["id"]
-	if !ok {
-		// INVALID_VOLUME_ID
-		return csi.Error_DeleteVolumeError{3, "missing id val"}, nil
-	}
-
 	s.Lock()
 	defer s.Unlock()
 
-	removeRequest := resources.RemoveVolumeRequest{Name: id}
-	err := s.controller.Remove(removeRequest)
+	response, err := s.controller.DeleteVolume(*req)
 
 	if err != nil {
 		// UNDEFINED
-		return csi.Error_DeleteVolumeError{ErrorCode: 2, ErrorDescription: "error deleting volume"}
+		return nil, err
 	}
 
-	return &csi.DeleteVolumeResponse{
-		Reply: &csi.DeleteVolumeResponse_Result_{
-			Result: &csi.DeleteVolumeResponse_Result{},
-		},
-	}, nil
+	return &response, nil
 }
 
 func (s *sp) ControllerPublishVolume(
@@ -226,32 +191,15 @@ func (s *sp) ControllerPublishVolume(
 	req *csi.ControllerPublishVolumeRequest) (
 	*csi.ControllerPublishVolumeResponse, error) {
 
-	id, ok := req.GetVolumeId().GetValues()["id"]
-	if !ok {
-		// INVALID_VOLUME_ID
-		return csi.Error_ControllerPublishVolumeError{ErrorCode: 3, ErrorDescription: "missing id val"}, nil
-	}
-
-	nid := req.GetNodeId()
-	if nid == nil {
-		// INVALID_NODE_ID
-		return csi.Error_ControllerPublishVolumeError{ErrorCode: 7, ErrorDescription: "missing node id"}, nil
-	}
-
 	s.Lock()
 	defer s.Unlock()
 
-	attachRequest := resources.AttachRequest{Name: id, Host: nid}
-	s.controller.Attach(attachRequest)
-	return &csi.ControllerPublishVolumeResponse{
-		Reply: &csi.ControllerPublishVolumeResponse_Result_{
-			Result: &csi.ControllerPublishVolumeResponse_Result{
-				PublishVolumeInfo: &csi.PublishVolumeInfo{
-					Values: map[string]string{},
-				},
-			},
-		},
-	}, nil
+	response, err := s.controller.Attach(*req)
+	if err != nil {
+		// UNDEFINED
+		return nil, err
+	}
+	return &response, nil
 }
 
 func (s *sp) ControllerUnpublishVolume(
@@ -259,49 +207,26 @@ func (s *sp) ControllerUnpublishVolume(
 	req *csi.ControllerUnpublishVolumeRequest) (
 	*csi.ControllerUnpublishVolumeResponse, error) {
 
-	id, ok := req.GetVolumeId().GetValues()["id"]
-	if !ok {
-		// INVALID_VOLUME_ID
-		return csi.Error_ControllerUnpublishVolumeError{ErrorCode: 3, ErrorDescription: "missing id val"}, nil
-	}
-
-	nid := req.GetNodeId()
-	if nid == nil {
-		// INVALID_NODE_ID
-		return csi.Error_ControllerUnpublishVolumeError{ErrorCode: 7, ErrorDescription: "missing node id"}, nil
-	}
-
-	nidv := nid.GetValues()
-	if len(nidv) == 0 {
-		// INVALID_NODE_ID
-		return csi.Error_ControllerUnpublishVolumeError{ErrorCode: 7, "missing node id"}, nil
-	}
-
-	nidid, ok := nidv["id"]
-	if !ok {
-		// NODE_ID_REQUIRED
-		return csi.Error_ControllerUnpublishVolumeError{ErrorCode: 9, ErrorDescription: "node id required"}, nil
-	}
-
-	_ = id
-	_ = nidid
-
 	s.Lock()
 	defer s.Unlock()
 
-	return &csi.ControllerUnpublishVolumeResponse{
-		Reply: &csi.ControllerUnpublishVolumeResponse_Result_{
-			Result: &csi.ControllerUnpublishVolumeResponse_Result{},
-		},
-	}, nil
+	detachResponse, err := s.controller.Detach(*req)
+	if err != nil {
+		// UNDEFINED
+		return nil, err
+	}
+	return &detachResponse, nil
 }
 
 func (s *sp) ValidateVolumeCapabilities(
 	ctx context.Context,
 	req *csi.ValidateVolumeCapabilitiesRequest) (
 	*csi.ValidateVolumeCapabilitiesResponse, error) {
-
-	return nil, nil
+	resp, err := s.controller.ValidateCapabilities(*req)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
 
 func (s *sp) ListVolumes(
@@ -312,21 +237,13 @@ func (s *sp) ListVolumes(
 	s.Lock()
 	defer s.Unlock()
 
-	listResponse := s.controller.List()
-	entries := make([]*csi.ListVolumesResponse_Result_Entry, len(listResponse.Volumes))
-	for x, volume := range listResponse.Volumes {
-		entries[x] = &csi.ListVolumesResponse_Result_Entry{
-			VolumeInfo: volume,
-		}
+	listResponse, err := s.controller.ListVolumes(*req)
+	if err != nil {
+		// UNDEFINED
+		return nil, err
 	}
 
-	return &csi.ListVolumesResponse{
-		Reply: &csi.ListVolumesResponse_Result_{
-			Result: &csi.ListVolumesResponse_Result{
-				Entries: entries,
-			},
-		},
-	}, nil
+	return &listResponse, nil
 }
 
 func (s *sp) GetCapacity(
@@ -334,13 +251,12 @@ func (s *sp) GetCapacity(
 	req *csi.GetCapacityRequest) (
 	*csi.GetCapacityResponse, error) {
 
-	return &csi.GetCapacityResponse{
-		Reply: &csi.GetCapacityResponse_Result_{
-			Result: &csi.GetCapacityResponse_Result{
-				TotalCapacity: tib100,
-			},
-		},
-	}, nil
+	response, err := s.controller.GetCapacity(*req)
+	if err != nil {
+		// UNDEFINED
+		return nil, err
+	}
+	return &response, nil
 }
 
 func (s *sp) ControllerGetCapabilities(
@@ -348,46 +264,11 @@ func (s *sp) ControllerGetCapabilities(
 	req *csi.ControllerGetCapabilitiesRequest) (
 	*csi.ControllerGetCapabilitiesResponse, error) {
 
-	return &csi.ControllerGetCapabilitiesResponse{
-		Reply: &csi.ControllerGetCapabilitiesResponse_Result_{
-			Result: &csi.ControllerGetCapabilitiesResponse_Result{
-				Capabilities: []*csi.ControllerServiceCapability{
-					{
-						Type: &csi.ControllerServiceCapability_Rpc{
-							Rpc: &csi.ControllerServiceCapability_RPC{
-								// CREATE_DELETE_VOLUME
-								Type: 1,
-							},
-						},
-					},
-					{
-						Type: &csi.ControllerServiceCapability_Rpc{
-							Rpc: &csi.ControllerServiceCapability_RPC{
-								// PUBLISH_UNPUBLISH_VOLUME
-								Type: 2,
-							},
-						},
-					},
-					{
-						Type: &csi.ControllerServiceCapability_Rpc{
-							Rpc: &csi.ControllerServiceCapability_RPC{
-								// LIST_VOLUMES
-								Type: 3,
-							},
-						},
-					},
-					{
-						Type: &csi.ControllerServiceCapability_Rpc{
-							Rpc: &csi.ControllerServiceCapability_RPC{
-								// GET_CAPACITY
-								Type: 4,
-							},
-						},
-					},
-				},
-			},
-		},
-	}, nil
+	response, err := s.controller.ControllerGetCapabilities(*req)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -399,19 +280,11 @@ func (s *sp) GetSupportedVersions(
 	req *csi.GetSupportedVersionsRequest) (
 	*csi.GetSupportedVersionsResponse, error) {
 
-	return &csi.GetSupportedVersionsResponse{
-		Reply: &csi.GetSupportedVersionsResponse_Result_{
-			Result: &csi.GetSupportedVersionsResponse_Result{
-				SupportedVersions: []*csi.Version{
-					{
-						Major: 0,
-						Minor: 1,
-						Patch: 0,
-					},
-				},
-			},
-		},
-	}, nil
+	response, err := s.controller.GetSupportedVersions(*req)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 func (s *sp) GetPluginInfo(
@@ -419,15 +292,11 @@ func (s *sp) GetPluginInfo(
 	req *csi.GetPluginInfoRequest) (
 	*csi.GetPluginInfoResponse, error) {
 
-	return &csi.GetPluginInfoResponse{
-		Reply: &csi.GetPluginInfoResponse_Result_{
-			Result: &csi.GetPluginInfoResponse_Result{
-				Name:          s.name,
-				VendorVersion: "0.1.0",
-				Manifest:      nil,
-			},
-		},
-	}, nil
+	response, err := s.controller.GetPluginInfos(*req)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -439,22 +308,14 @@ func (s *sp) NodePublishVolume(
 	req *csi.NodePublishVolumeRequest) (
 	*csi.NodePublishVolumeResponse, error) {
 
-	id, ok := req.GetVolumeId().GetValues()["id"]
-	if !ok {
-		// MISSING_REQUIRED_FIELD
-		return csi.Error_NodePublishVolumeError{ErrorCode: 3, ErrorDescription: "missing id val"}, nil
-	}
-
 	s.Lock()
 	defer s.Unlock()
 
-	_ = id
-
-	return &csi.NodePublishVolumeResponse{
-		Reply: &csi.NodePublishVolumeResponse_Result_{
-			Result: &csi.NodePublishVolumeResponse_Result{},
-		},
-	}, nil
+	response, err := s.controller.Mount(*req)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 func (s *sp) NodeUnpublishVolume(
@@ -464,20 +325,11 @@ func (s *sp) NodeUnpublishVolume(
 
 	s.Lock()
 	defer s.Unlock()
-
-	id, ok := req.GetVolumeId().GetValues()["id"]
-	if !ok {
-		// VOLUME_DOES_NOT_EXIST
-		return csi.Error_NodePublishVolumeError{ErrorCode: 2, ErrorDescription: "missing id val"}, nil
+	response, err := s.controller.Unount(*req)
+	if err != nil {
+		return nil, err
 	}
-
-	_ = id
-
-	return &csi.NodeUnpublishVolumeResponse{
-		Reply: &csi.NodeUnpublishVolumeResponse_Result_{
-			Result: &csi.NodeUnpublishVolumeResponse_Result{},
-		},
-	}, nil
+	return &response, nil
 }
 
 func (s *sp) GetNodeID(
@@ -485,29 +337,23 @@ func (s *sp) GetNodeID(
 	req *csi.GetNodeIDRequest) (
 	*csi.GetNodeIDResponse, error) {
 
-	return &csi.GetNodeIDResponse{
-		Reply: &csi.GetNodeIDResponse_Result_{
-			Result: &csi.GetNodeIDResponse_Result{
-				NodeId: &csi.NodeID{
-					Values: map[string]string{
-						"instanceID": os.Hostname(),
-					},
-				},
-			},
-		},
-	}, nil
+	response, err := s.controller.GetNodeID(*req)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 func (s *sp) ProbeNode(
 	ctx context.Context,
 	req *csi.ProbeNodeRequest) (
 	*csi.ProbeNodeResponse, error) {
+	response, err := s.controller.ProbeNode(*req)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 
-	return &csi.ProbeNodeResponse{
-		Reply: &csi.ProbeNodeResponse_Result_{
-			Result: &csi.ProbeNodeResponse_Result{},
-		},
-	}, nil
 }
 
 func (s *sp) NodeGetCapabilities(
@@ -515,30 +361,7 @@ func (s *sp) NodeGetCapabilities(
 	req *csi.NodeGetCapabilitiesRequest) (
 	*csi.NodeGetCapabilitiesResponse, error) {
 
-	return &csi.NodeGetCapabilitiesResponse{
-		Reply: &csi.NodeGetCapabilitiesResponse_Result_{
-			Result: &csi.NodeGetCapabilitiesResponse_Result{
-				Capabilities: []*csi.NodeServiceCapability{
-					{
-						Type: &csi.NodeServiceCapability_VolumeCapability{
-							VolumeCapability: &csi.VolumeCapability{
-								Value: &csi.VolumeCapability_Mount{
-									Mount: &csi.VolumeCapability_MountVolume{
-										FsType: "ext4",
-										MountFlags: []string{
-											"norootsquash",
-											"uid=500",
-											"gid=500",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}, nil
+	s.controller.GetNodeCapabilities(*req)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
