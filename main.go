@@ -10,7 +10,8 @@ import (
 	"os"
 	"sync"
 
-	ubiquity_csi_core "github.ibm.com/almaden-containers/ubiquity-csi/core"
+	"github.com/BurntSushi/toml"
+	ubiquity_csi_core "github.com/midoblgsm/ubiquity-csi/core"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -18,11 +19,11 @@ import (
 	"flag"
 	"path"
 
-	"github.com/BurntSushi/toml"
-	"github.com/IBM/ubiquity/resources"
-	"github.com/IBM/ubiquity/utils"
-	"github.com/IBM/ubiquity/utils/logs"
-	"github.com/container-storage-interface/spec/lib/go/csi"
+	csi_utils "github.com/midoblgsm/ubiquity-csi/utils"
+	"github.com/midoblgsm/ubiquity/csi"
+	"github.com/midoblgsm/ubiquity/resources"
+	"github.com/midoblgsm/ubiquity/utils"
+	"github.com/midoblgsm/ubiquity/utils/logs"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -36,7 +37,7 @@ var configFile = flag.String(
 )
 
 func main() {
-	l, err := GetCSIEndpointListener()
+	l, err := csi_utils.GetCSIEndpointListener()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: failed to listen: %v\n", err)
 		os.Exit(1)
@@ -53,8 +54,8 @@ func main() {
 		return
 	}
 
-	defer logs.InitFileLogger(logs.DEBUG, path.Join(config.LogPath, "ubiquity-docker-plugin.log"))()
-	logger, logFile := utils.SetupLogger(config.LogPath, "ubiquity-docker-plugin")
+	defer logs.InitFileLogger(logs.DEBUG, path.Join(config.LogPath, "ubiquity-csi.log"))()
+	logger, logFile := utils.SetupLogger(config.LogPath, "ubiquity-csi")
 	defer utils.CloseLogs(logFile)
 
 	storageAPIURL := fmt.Sprintf("http://%s:%d/ubiquity_storage", config.UbiquityServer.Address, config.UbiquityServer.Port)
@@ -361,7 +362,11 @@ func (s *sp) NodeGetCapabilities(
 	req *csi.NodeGetCapabilitiesRequest) (
 	*csi.NodeGetCapabilitiesResponse, error) {
 
-	s.controller.GetNodeCapabilities(*req)
+	response, err := s.controller.GetNodeCapabilities(*req)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

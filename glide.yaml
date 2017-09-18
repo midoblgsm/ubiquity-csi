@@ -1,16 +1,13 @@
-package: github.ibm.com/almaden-containers/ubiquity-csi
+package: github.com/midoblgsm/ubiquity-csi
 import:
 - package: github.com/BurntSushi/toml
-- package: github.com/IBM/ubiquity
+- package: github.com/midoblgsm/ubiquity
   subpackages:
+  - csi
   - remote
   - resources
   - utils
   - utils/logs
-- package: github.com/akutz/csi-examples
-  version: feature/gocsi
-  subpackages:
-  - gocsi/csi
 - package: golang.org/x/net
   subpackages:
   - context

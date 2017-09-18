@@ -1,37 +1,14 @@
-/**
- * Copyright 2017 IBM Corp.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package controller
 
 import (
 	"fmt"
 	"log"
 	"os"
-	//"os/exec"
-	//"path"
-	//"strings"
 
-	//"bytes"
-	//k8sresources "github.com/IBM/ubiquity-k8s/resources"
-	//"github.com/IBM/ubiquity-k8s/volume"
-	"github.com/IBM/ubiquity/remote"
-	"github.com/IBM/ubiquity/resources"
-	"github.com/IBM/ubiquity/utils"
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	//"path/filepath"
+	"github.com/midoblgsm/ubiquity/csi"
+	"github.com/midoblgsm/ubiquity/remote"
+	"github.com/midoblgsm/ubiquity/resources"
+	"github.com/midoblgsm/ubiquity/utils"
 )
 
 //Controller this is a structure that controls volume management
@@ -58,98 +35,138 @@ func NewControllerWithClient(logger *log.Logger, client resources.StorageClient,
 	return &Controller{logger: logger, Client: client, exec: exec}
 }
 
+//ControllerServer interface
+//type ControllerServer interface {
+//CreateVolume(context.Context, *CreateVolumeRequest) (*CreateVolumeResponse, error)
+//DeleteVolume(context.Context, *DeleteVolumeRequest) (*DeleteVolumeResponse, error)
+//ControllerPublishVolume(context.Context, *ControllerPublishVolumeRequest) (*ControllerPublishVolumeResponse, error)
+//ControllerUnpublishVolume(context.Context, *ControllerUnpublishVolumeRequest) (*ControllerUnpublishVolumeResponse, error)
+//ValidateVolumeCapabilities(context.Context, *ValidateVolumeCapabilitiesRequest) (*ValidateVolumeCapabilitiesResponse, error)
+//ListVolumes(context.Context, *ListVolumesRequest) (*ListVolumesResponse, error)
+//GetCapacity(context.Context, *GetCapacityRequest) (*GetCapacityResponse, error)
+//ControllerGetCapabilities(context.Context, *ControllerGetCapabilitiesRequest) (*ControllerGetCapabilitiesResponse, error)
+//}
 func (c *Controller) CreateVolume(request csi.CreateVolumeRequest) (csi.CreateVolumeResponse, error) {
-	return csi.CreateVolumeResponse{}, nil
-	//in := &resources.CreateVolumeRequest{}
-	//opts := make(map[string]interface{})
+	in := &resources.CreateVolumeRequest{}
+	opts := make(map[string]interface{})
 	//// set the volume size
-	//var capacity *csi.CapacityRange
-	//if capacity = req.GetCapacityRange(); capacity != nil {
-	//	opts["quota"] = capacity.LimitBytes
-	//}
+	var capacity *csi.CapacityRange
+	if capacity = request.GetCapacityRange(); capacity != nil {
+		opts["quota"] = capacity.LimitBytes
+		opts["size"] = capacity.LimitBytes
+	}
 	//
 	//// set additional options
-	//params := req.GetParameters()
-	//for k, v := range params {
-	//	opts[k] = v
-	//}
+	params := request.GetParameters()
+	for k, v := range params {
+		opts[k] = v
+	}
 	//
-	//in.Name = req.GetName()
-	//in.Backend = req.Parameters["backend"]
+	in.Name = request.GetName()
+	in.Backend = request.Parameters["backend"]
+	createVolumeResponse := c.Client.CreateVolume(*in)
+	if createVolumeResponse.Error != nil {
+		return csi.CreateVolumeResponse{}, createVolumeResponse.Error
+	}
 
-	//volumeID := csi.VolumeID{Values: map[string]string{"Name": volume.Name, "ID": fmt.Sprintf("%d", volume.ID)}}
-	//volumeInfo := csi.VolumeInfo{CapacityBytes: capacity.LimitBytes,
-	//	AccessMode: nil,
-	//	Id:         &volumeID,
-	//	Metadata:   &csi.VolumeMetadata{Values: map[string]string{"backend": volume.Backend}}}
-	//return &csi.CreateVolumeResponse{
-	//	Reply: &csi.CreateVolumeResponse_Result_{
-	//		Result: &csi.CreateVolumeResponse_Result{
-	//			VolumeInfo: &volumeInfo,
-	//		},
-	//	},
-	//}, csi.Error_CreateVolumeError{}
+	volumeID := csi.VolumeID{Values: map[string]string{"Name": createVolumeResponse.Volume.Name, "ID": fmt.Sprintf("%d", createVolumeResponse.Volume.ID)}}
+	volumeInfo := csi.VolumeInfo{CapacityBytes: capacity.LimitBytes,
+		Id:       &volumeID,
+		Metadata: &csi.VolumeMetadata{Values: map[string]string{"backend": createVolumeResponse.Volume.Backend}}}
+	return csi.CreateVolumeResponse{
+		Reply: &csi.CreateVolumeResponse_Result_{
+			Result: &csi.CreateVolumeResponse_Result{
+				VolumeInfo: &volumeInfo,
+			},
+		},
+	}, nil
 
 }
 
+//TODO implement this method
 func (c *Controller) DeleteVolume(request csi.DeleteVolumeRequest) (csi.DeleteVolumeResponse, error) {
 
 	return csi.DeleteVolumeResponse{}, nil
 }
 
 func (c *Controller) Attach(request csi.ControllerPublishVolumeRequest) (csi.ControllerPublishVolumeResponse, error) {
-	//id, ok := req.GetVolumeId().GetValues()["id"]
-	//if !ok {
-	//	// INVALID_VOLUME_ID
-	//	return nil, csi.Error_ControllerPublishVolumeError{ErrorCode: 3, ErrorDescription: "missing id val"}
-	//}
+	name, ok := request.GetVolumeId().GetValues()["volumeName"]
+	if !ok {
+		//	// INVALID_VOLUME_ID
+		return csi.ControllerPublishVolumeResponse{}, fmt.Errorf("missing id val")
+	}
+
 	//
-	//nid := req.GetNodeId()
-	//if nid == nil {
-	//	// INVALID_NODE_ID
-	//	return nil, csi.Error_ControllerPublishVolumeError{ErrorCode: 7, ErrorDescription: "missing node id"}
-	//}
-	return csi.ControllerPublishVolumeResponse{}, nil
+	nid := request.GetNodeId()
+	if nid == nil {
+		//	// INVALID_NODE_ID
+		return csi.ControllerPublishVolumeResponse{}, fmt.Errorf("missing node id")
+	}
+	hostname, ok := nid.Values["hostname"]
+	if !ok {
+		return csi.ControllerPublishVolumeResponse{}, fmt.Errorf("missing hostname")
+
+	}
+	attachRequest := resources.AttachRequest{Name: name, Host: hostname}
+	attachResponse := c.Client.Attach(attachRequest)
+	values := make(map[string]string)
+	values["mountpoint"] = attachResponse.Mountpoint
+	publishVolumeInfo := csi.PublishVolumeInfo{Values: values}
+	result := csi.ControllerPublishVolumeResponse_Result{PublishVolumeInfo: &publishVolumeInfo}
+	reply := csi.ControllerPublishVolumeResponse_Result_{Result: &result}
+
+	return csi.ControllerPublishVolumeResponse{Reply: &reply}, nil
 }
 
 func (c *Controller) Detach(request csi.ControllerUnpublishVolumeRequest) (csi.ControllerUnpublishVolumeResponse, error) {
-	//id, ok := req.GetVolumeId().GetValues()["id"]
-	//if !ok {
-	//	// INVALID_VOLUME_ID
-	//	return nil, csi.Error_ControllerUnpublishVolumeError{ErrorCode: 3, ErrorDescription: "missing id val"}
-	//}
+	volumeName, ok := request.GetVolumeId().GetValues()["volumeName"]
+	if !ok {
+		//	// INVALID_VOLUME_ID
+		return csi.ControllerUnpublishVolumeResponse{}, fmt.Errorf("missing id val")
+	}
 	//
-	//nid := req.GetNodeId()
-	//if nid == nil {
-	//	// INVALID_NODE_ID
-	//	return nil, csi.Error_ControllerUnpublishVolumeError{ErrorCode: 7, ErrorDescription: "missing node id"}
-	//}
+	nid := request.GetNodeId()
+	if nid == nil {
+		//	// INVALID_NODE_ID
+		return csi.ControllerUnpublishVolumeResponse{}, fmt.Errorf("missing node id")
+	}
 	//
-	//nidv := nid.GetValues()
-	//if len(nidv) == 0 {
-	//	// INVALID_NODE_ID
-	//	return nil, csi.Error_ControllerUnpublishVolumeError{ErrorCode: 7, "missing node id"}
-	//}
-	//
-	//nidid, ok := nidv["id"]
-	//if !ok {
-	//	// NODE_ID_REQUIRED
-	//	return  nil,csi.Error_ControllerUnpublishVolumeError{ErrorCode: 9, ErrorDescription: "node id required"}
-	//}
-	//
-	//_ = id
-	//_ = nidid
-	return csi.ControllerUnpublishVolumeResponse{}, nil
+	hostname, ok := nid.Values["hostname"]
+	if !ok {
+		//	// INVALID_NODE_ID
+		return csi.ControllerUnpublishVolumeResponse{}, fmt.Errorf("missing node id")
+	}
+	detachRequest := resources.DetachRequest{Name: volumeName, Host: hostname}
+	detachResponse := c.Client.Detach(detachRequest)
+	if detachResponse.Error != nil {
+		return csi.ControllerUnpublishVolumeResponse{}, detachResponse.Error
+	}
+	reply := csi.ControllerUnpublishVolumeResponse_Result_{}
+
+	return csi.ControllerUnpublishVolumeResponse{Reply: &reply}, nil
 }
 
 func (c *Controller) ListVolumes(request csi.ListVolumesRequest) (csi.ListVolumesResponse, error) {
-	//entries := make([]*csi.ListVolumesResponse_Result_Entry, len(listResponse.Volumes))
-	//for x, volume := range listResponse.Volumes {
-	//	entries[x] = &csi.ListVolumesResponse_Result_Entry{
-	//		VolumeInfo: volume,
-	//	}
-	//}
-	return csi.ListVolumesResponse{}, nil
+	listVolumesRequest := resources.ListVolumesRequest{}
+	listVolumesResponse := c.Client.ListVolumes(listVolumesRequest)
+	if listVolumesResponse.Error != nil {
+		return csi.ListVolumesResponse{}, listVolumesResponse.Error
+	}
+	entries := make([]*csi.ListVolumesResponse_Result_Entry, len(listVolumesResponse.Volumes))
+	var volumeInfo csi.VolumeInfo
+	for x, volume := range listVolumesResponse.Volumes {
+
+		volumeInfo.Id = &volume.ID
+		volumeInfo.Metadata = &volume.Metadata
+		volumeInfo.CapacityBytes = volume.CapacityBytes
+		entries[x] = &csi.ListVolumesResponse_Result_Entry{
+			VolumeInfo: &volumeInfo,
+		}
+	}
+	result := csi.ListVolumesResponse_Result{Entries: entries}
+
+	reply := csi.ListVolumesResponse_Result_{Result: &result}
+	return csi.ListVolumesResponse{Reply: &reply}, nil
 }
 
 func (c *Controller) ValidateCapabilities(request csi.ValidateVolumeCapabilitiesRequest) (csi.ValidateVolumeCapabilitiesResponse, error) {

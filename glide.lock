@@ -1,26 +1,32 @@
-hash: c7b724ae386566a437c4e4a93d835249c1026506b4267cdc69e577b658ccf91d
-updated: 2017-07-13T18:05:36.997424294-07:00
+hash: 8b2567e970ce7dfc6d422a1bdfd894e8019b10c3ad80465ed001a923bb107c94
+updated: 2017-09-01T10:21:53.066996345-07:00
 imports:
-- name: github.com/akutz/csi-examples
-  version: 66ea25af7cc51a46572b709fb8d5cdb3a3bc5231
-  subpackages:
-  - gocsi/csi
 - name: github.com/BurntSushi/toml
-  version: a368813c5e648fee92e5f6c30e3944ff9d5e8895
+  version: b26d9c308763d68093482582cea63d69be07a0f0
 - name: github.com/djherbis/times
   version: 95292e44976d1217cf3611dc7c8d9466877d3ed5
 - name: github.com/golang/protobuf
-  version: 0a4f71a498b7c4812f64969510bcb4eca251e33a
+  version: 5afd06f9d81a86d6e3bb7dc702d6bd148ea3ff23
   subpackages:
   - proto
+  - ptypes
   - ptypes/any
+  - ptypes/duration
+  - ptypes/timestamp
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
 - name: github.com/gorilla/mux
   version: bcd8bc72b08df0f70df986b97f95590779502d31
-- name: github.com/IBM/ubiquity
-  version: 7b71b94dd26c46f054218bfb539e0a402b3456b8
+- name: github.com/jinzhu/gorm
+  version: 5174cc5c242a728b435ea2be8a2f7f998e15429b
   subpackages:
+  - dialects/sqlite
+- name: github.com/jinzhu/inflection
+  version: 1c35d901db3da928c72a72d8458480cc9ade058f
+- name: github.com/midoblgsm/ubiquity
+  version: b25f84ce81177e96481f5f687bdb2be861400da6
+  subpackages:
+  - csi
   - remote
   - remote/mounter
   - remote/mounter/block_device_mounter_utils
@@ -28,16 +34,10 @@ imports:
   - resources
   - utils
   - utils/logs
-- name: github.com/jinzhu/gorm
-  version: 5174cc5c242a728b435ea2be8a2f7f998e15429b
-  subpackages:
-  - dialects/sqlite
-- name: github.com/jinzhu/inflection
-  version: 1c35d901db3da928c72a72d8458480cc9ade058f
 - name: github.com/op/go-logging
-  version: 970db520ece77730c7e4724c61121037378659d9
+  version: b2cb9fa56473e98db8caba80237377e83fe44db5
 - name: golang.org/x/net
-  version: f01ecb60fe3835d80d9a0b7b2bf24b228c89260e
+  version: 66aacef3dd8a676686c7ae3716979581e8b03c47
   subpackages:
   - context
   - http2
@@ -47,22 +47,23 @@ imports:
   - lex/httplex
   - trace
 - name: golang.org/x/text
-  version: cfdf022e86b4ecfb646e1efbd7db175dd623a8fa
+  version: bd91bbf73e9a4a801adbfb97133c992678533126
   subpackages:
   - secure/bidirule
   - transform
   - unicode/bidi
   - unicode/norm
 - name: google.golang.org/genproto
-  version: b0a3dcfcd1a9bd48e63634bd8802960804cf8315
+  version: ee236bd376b077c7a89f260c026c4735b195e459
   subpackages:
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: d6723916d2e73e8824d22a1ba5c52f8e6255e6f8
+  version: f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3
   subpackages:
   - codes
+  - connectivity
   - credentials
-  - grpclb/grpc_lb_v1
+  - grpclb/grpc_lb_v1/messages
   - grpclog
   - internal
   - keepalive

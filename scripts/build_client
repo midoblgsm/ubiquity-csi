@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+
+scripts=$(dirname $0)
+
+go build -ldflags -s -o $scripts/../bin/ubiquity-csi-client $scripts/../cmd/client/main/main.go
