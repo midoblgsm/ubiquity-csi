@@ -47,13 +47,15 @@ func NewControllerWithClient(logger *log.Logger, client resources.StorageClient,
 //ControllerGetCapabilities(context.Context, *ControllerGetCapabilitiesRequest) (*ControllerGetCapabilitiesResponse, error)
 //}
 func (c *Controller) CreateVolume(request csi.CreateVolumeRequest) (csi.CreateVolumeResponse, error) {
+	c.logger.Printf("Entering-controller-create-volume")
+	defer c.logger.Printf("Exiting-controller-create-volume")
 	in := &resources.CreateVolumeRequest{}
-	opts := make(map[string]interface{})
+	opts := make(map[string]string)
 	//// set the volume size
 	var capacity *csi.CapacityRange
 	if capacity = request.GetCapacityRange(); capacity != nil {
-		opts["quota"] = capacity.LimitBytes
-		opts["size"] = capacity.LimitBytes
+		opts["quota"] = fmt.Sprintf("%d", capacity.LimitBytes)
+		opts["size"] = fmt.Sprintf("%d", capacity.LimitBytes)
 	}
 	//
 	//// set additional options
@@ -64,16 +66,18 @@ func (c *Controller) CreateVolume(request csi.CreateVolumeRequest) (csi.CreateVo
 	//
 	in.Name = request.GetName()
 	in.Backend = request.Parameters["backend"]
-	in.Opts = opts
+	in.Metadata = opts
 	createVolumeResponse := c.Client.CreateVolume(*in)
 	if createVolumeResponse.Error != nil {
+		c.logger.Printf("error-create-volume-%#v", createVolumeResponse.Error)
 		return csi.CreateVolumeResponse{}, createVolumeResponse.Error
 	}
 
-	volumeID := csi.VolumeID{Values: map[string]string{"Name": createVolumeResponse.Volume.Name, "ID": fmt.Sprintf("%d", createVolumeResponse.Volume.ID)}}
+	handle := csi.VolumeHandle{Id: createVolumeResponse.Volume.Name,
+		Metadata: map[string]string{"backend": createVolumeResponse.Volume.Backend}}
 	volumeInfo := csi.VolumeInfo{CapacityBytes: capacity.LimitBytes,
-		Id:       &volumeID,
-		Metadata: &csi.VolumeMetadata{Values: map[string]string{"backend": createVolumeResponse.Volume.Backend}}}
+		Handle: &handle,
+	}
 	return csi.CreateVolumeResponse{
 		Reply: &csi.CreateVolumeResponse_Result_{
 			Result: &csi.CreateVolumeResponse_Result{
@@ -91,12 +95,6 @@ func (c *Controller) DeleteVolume(request csi.DeleteVolumeRequest) (csi.DeleteVo
 }
 
 func (c *Controller) Attach(request csi.ControllerPublishVolumeRequest) (csi.ControllerPublishVolumeResponse, error) {
-	name, ok := request.GetVolumeId().GetValues()["volumeName"]
-	if !ok {
-		//	// INVALID_VOLUME_ID
-		return csi.ControllerPublishVolumeResponse{}, fmt.Errorf("missing id val")
-	}
-
 	//
 	nid := request.GetNodeId()
 	if nid == nil {
@@ -108,7 +106,7 @@ func (c *Controller) Attach(request csi.ControllerPublishVolumeRequest) (csi.Con
 		return csi.ControllerPublishVolumeResponse{}, fmt.Errorf("missing hostname")
 
 	}
-	attachRequest := resources.AttachRequest{Name: name, Host: hostname}
+	attachRequest := resources.AttachRequest{Name: request.VolumeHandle.Id, Host: hostname}
 	attachResponse := c.Client.Attach(attachRequest)
 	values := make(map[string]string)
 	values["mountpoint"] = attachResponse.Mountpoint
@@ -120,12 +118,6 @@ func (c *Controller) Attach(request csi.ControllerPublishVolumeRequest) (csi.Con
 }
 
 func (c *Controller) Detach(request csi.ControllerUnpublishVolumeRequest) (csi.ControllerUnpublishVolumeResponse, error) {
-	volumeName, ok := request.GetVolumeId().GetValues()["volumeName"]
-	if !ok {
-		//	// INVALID_VOLUME_ID
-		return csi.ControllerUnpublishVolumeResponse{}, fmt.Errorf("missing id val")
-	}
-	//
 	nid := request.GetNodeId()
 	if nid == nil {
 		//	// INVALID_NODE_ID
@@ -137,7 +129,7 @@ func (c *Controller) Detach(request csi.ControllerUnpublishVolumeRequest) (csi.C
 		//	// INVALID_NODE_ID
 		return csi.ControllerUnpublishVolumeResponse{}, fmt.Errorf("missing node id")
 	}
-	detachRequest := resources.DetachRequest{Name: volumeName, Host: hostname}
+	detachRequest := resources.DetachRequest{Name: request.VolumeHandle.Id, Host: hostname}
 	detachResponse := c.Client.Detach(detachRequest)
 	if detachResponse.Error != nil {
 		return csi.ControllerUnpublishVolumeResponse{}, detachResponse.Error
@@ -163,11 +155,10 @@ func (c *Controller) ListVolumes(request csi.ListVolumesRequest) (csi.ListVolume
 		reply.Result.Entries[x] = &csi.ListVolumesResponse_Result_Entry{VolumeInfo: &csi.VolumeInfo{}}
 
 		c.logger.Printf("Entry %#v \n", reply.Result.Entries[x].VolumeInfo)
-		reply.Result.Entries[x].VolumeInfo.Id = &volume.VolumeID
-		reply.Result.Entries[x].VolumeInfo.Id.Values = make(map[string]string)
-		reply.Result.Entries[x].VolumeInfo.Id.Values["volumeName"] = volume.Name
-		reply.Result.Entries[x].VolumeInfo.Id.Values["backend"] = volume.Backend
-		reply.Result.Entries[x].VolumeInfo.Metadata = &volume.Metadata
+		volumeHandle := csi.VolumeHandle{}
+		volumeHandle.Id = volume.Name
+		volumeHandle.Metadata = volume.Metadata
+		reply.Result.Entries[x].VolumeInfo.Handle = &volumeHandle
 		reply.Result.Entries[x].VolumeInfo.CapacityBytes = volume.CapacityBytes
 
 	}

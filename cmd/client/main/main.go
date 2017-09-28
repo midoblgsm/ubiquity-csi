@@ -19,8 +19,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/midoblgsm/ubiquity-csi/utils"
-	"github.com/midoblgsm/ubiquity/csi"
 )
 
 const (
@@ -538,10 +538,11 @@ func controllerPublishVolume(
 		err    error
 		tpl    *template.Template
 
-		volumeMD *csi.VolumeMetadata
-		nodeID   *csi.NodeID
+		volumeHandle *csi.VolumeHandle
 
-		volumeID = &csi.VolumeID{Values: map[string]string{}}
+		nodeID *csi.NodeID
+
+		volumeID = &csi.VolumeHandle{Metadata: map[string]string{}}
 		readOnly = argsControllerPublishVolume.readOnly
 
 		format  = args.format
@@ -554,15 +555,15 @@ func controllerPublishVolume(
 		kv := strings.SplitN(a, "=", 2)
 		switch len(kv) {
 		case 1:
-			volumeID.Values[kv[0]] = ""
+			volumeHandle.Id = ""
 		case 2:
-			volumeID.Values[kv[0]] = kv[1]
+			volumeID.Id = kv[1]
 		}
 	}
 
 	// check for volume metadata
 	if v := argsControllerPublishVolume.volumeMD.vals; len(v) > 0 {
-		volumeMD = &csi.VolumeMetadata{Values: v}
+		volumeHandle.Metadata = v
 	}
 
 	// check for a node ID
@@ -581,8 +582,7 @@ func controllerPublishVolume(
 
 	// execute the rpc
 	result, err := utils.ControllerPublishVolume(
-		ctx, client, version, volumeID,
-		volumeMD, nodeID, readOnly)
+		ctx, client, version, volumeHandle, nodeID, readOnly)
 	if err != nil {
 		return err
 	}
@@ -642,10 +642,9 @@ func controllerUnpublishVolume(
 	var (
 		client csi.ControllerClient
 
-		volumeMD *csi.VolumeMetadata
-		nodeID   *csi.NodeID
-
-		volumeID = &csi.VolumeID{Values: map[string]string{}}
+		volumeHandle *csi.VolumeHandle
+		volumeID     = &csi.VolumeHandle{Metadata: map[string]string{}}
+		nodeID       *csi.NodeID
 
 		version = args.version
 	)
@@ -656,15 +655,15 @@ func controllerUnpublishVolume(
 		kv := strings.SplitN(a, "=", 2)
 		switch len(kv) {
 		case 1:
-			volumeID.Values[kv[0]] = ""
+			volumeHandle.Id = ""
 		case 2:
-			volumeID.Values[kv[0]] = kv[1]
+			volumeHandle.Id = kv[1]
 		}
 	}
 
 	// check for volume metadata
 	if v := argsControllerUnpublishVolume.volumeMD.vals; len(v) > 0 {
-		volumeMD = &csi.VolumeMetadata{Values: v}
+		volumeHandle.Metadata = v
 	}
 
 	// check for a node ID
@@ -677,7 +676,7 @@ func controllerUnpublishVolume(
 
 	// execute the rpc
 	err := utils.ControllerUnpublishVolume(
-		ctx, client, version, volumeID, volumeMD, nodeID)
+		ctx, client, version, volumeID, nodeID)
 	if err != nil {
 		return err
 	}
@@ -909,18 +908,11 @@ func nodePublishVolume(
 	var (
 		client csi.NodeClient
 
-		volumeMD   *csi.VolumeMetadata
-		pubVolInfo *csi.PublishVolumeInfo
+		volumeHandle *csi.VolumeHandle
+		pubVolInfo   *csi.PublishVolumeInfo
 
-		capability = &csi.VolumeCapability{
-			Value: &csi.VolumeCapability_Mount{
-				Mount: &csi.VolumeCapability_MountVolume{
-					FsType:     argsNodePublishVolume.fsType,
-					MountFlags: argsNodePublishVolume.mntFlags.vals,
-				},
-			},
-		}
-		volumeID   = &csi.VolumeID{Values: map[string]string{}}
+		capability = &csi.VolumeCapability{}
+		volumeID   = &csi.VolumeHandle{Metadata: map[string]string{}}
 		targetPath = argsNodePublishVolume.targetPath
 		readOnly   = argsNodePublishVolume.readOnly
 
@@ -933,15 +925,15 @@ func nodePublishVolume(
 		kv := strings.SplitN(a, "=", 2)
 		switch len(kv) {
 		case 1:
-			volumeID.Values[kv[0]] = ""
+			volumeHandle.Id = ""
 		case 2:
-			volumeID.Values[kv[0]] = kv[1]
+			volumeHandle.Id = kv[1]
 		}
 	}
 
 	// check for volume metadata
 	if v := argsNodePublishVolume.volumeMD.vals; len(v) > 0 {
-		volumeMD = &csi.VolumeMetadata{Values: v}
+		volumeHandle.Metadata = v
 	}
 
 	// check for publish volume info
@@ -954,8 +946,7 @@ func nodePublishVolume(
 
 	// execute the rpc
 	err := utils.NodePublishVolume(
-		ctx, client, version, volumeID,
-		volumeMD, pubVolInfo, targetPath,
+		ctx, client, version, volumeID, pubVolInfo, targetPath,
 		capability, readOnly)
 	if err != nil {
 		return err
@@ -1014,9 +1005,9 @@ func nodeUnpublishVolume(
 	var (
 		client csi.NodeClient
 
-		volumeMD *csi.VolumeMetadata
+		volumeHandle *csi.VolumeHandle
 
-		volumeID   = &csi.VolumeID{Values: map[string]string{}}
+		volumeID   = &csi.VolumeHandle{Metadata: map[string]string{}}
 		targetPath = argsNodeUnpublishVolume.targetPath
 
 		version = args.version
@@ -1028,15 +1019,15 @@ func nodeUnpublishVolume(
 		kv := strings.SplitN(a, "=", 2)
 		switch len(kv) {
 		case 1:
-			volumeID.Values[kv[0]] = ""
+			volumeHandle.Id = ""
 		case 2:
-			volumeID.Values[kv[0]] = kv[1]
+			volumeHandle.Id = kv[1]
 		}
 	}
 
 	// check for volume metadata
 	if v := argsNodeUnpublishVolume.volumeMD.vals; len(v) > 0 {
-		volumeMD = &csi.VolumeMetadata{Values: v}
+		volumeHandle.Metadata = v
 	}
 
 	// initialize the csi client
@@ -1044,8 +1035,7 @@ func nodeUnpublishVolume(
 
 	// execute the rpc
 	err := utils.NodeUnpublishVolume(
-		ctx, client, version, volumeID,
-		volumeMD, targetPath)
+		ctx, client, version, volumeID, targetPath)
 	if err != nil {
 		return err
 	}

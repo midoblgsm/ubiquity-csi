@@ -11,7 +11,8 @@ import (
 	"sync"
 
 	"github.com/BurntSushi/toml"
-	ubiquity_csi_core "github.com/midoblgsm/ubiquity-csi/core"
+	"github.com/midoblgsm/ubiquity-csi/controller"
+	csi_utils "github.com/midoblgsm/ubiquity-csi/utils"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -19,8 +20,7 @@ import (
 	"flag"
 	"path"
 
-	csi_utils "github.com/midoblgsm/ubiquity-csi/utils"
-	"github.com/midoblgsm/ubiquity/csi"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/midoblgsm/ubiquity/resources"
 	"github.com/midoblgsm/ubiquity/utils"
 	"github.com/midoblgsm/ubiquity/utils/logs"
@@ -59,7 +59,7 @@ func main() {
 	defer utils.CloseLogs(logFile)
 
 	storageAPIURL := fmt.Sprintf("http://%s:%d/ubiquity_storage", config.UbiquityServer.Address, config.UbiquityServer.Port)
-	controller, err := ubiquity_csi_core.NewController(logger, "ubiquity", storageAPIURL, config)
+	controller, err := controller.NewController(logger, "ubiquity", storageAPIURL, config)
 	if err != nil {
 		logger.Printf("error-creating-controller %#v\n", err)
 		panic(fmt.Sprintf("error-creating-controller", err))
@@ -93,7 +93,7 @@ type sp struct {
 	name       string
 	server     *grpc.Server
 	closed     bool
-	controller *ubiquity_csi_core.Controller
+	controller *controller.Controller
 }
 
 // ServiceProvider.Serve

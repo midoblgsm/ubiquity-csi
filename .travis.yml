@@ -1,0 +1,12 @@
+language: go
+
+go:
+  - 1.9
+
+install:
+  - sh scripts/run_glide_up
+  - sh scripts/build
+  - sh scripts/build_client
+
+script:
+  - sh scripts/run_units.sh

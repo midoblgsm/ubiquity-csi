@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"github.com/midoblgsm/ubiquity/csi"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
 // CreateVolume issues a CreateVolume request to a CSI controller.
@@ -44,11 +44,7 @@ func CreateVolume(
 		if len(mountFlags) > 0 {
 			cap.MountFlags = mountFlags
 		}
-		req.VolumeCapabilities = []*csi.VolumeCapability{
-			&csi.VolumeCapability{
-				Value: &csi.VolumeCapability_Mount{Mount: cap},
-			},
-		}
+		req.VolumeCapabilities = []*csi.VolumeCapability{}
 	}
 
 	res, err := c.CreateVolume(ctx, req, callOpts...)
@@ -93,8 +89,7 @@ func ControllerPublishVolume(
 	ctx context.Context,
 	c csi.ControllerClient,
 	version *csi.Version,
-	volumeID *csi.VolumeID,
-	volumeMetadata *csi.VolumeMetadata,
+	volumeID *csi.VolumeHandle,
 	nodeID *csi.NodeID,
 	readonly bool,
 	callOpts ...grpc.CallOption) (
@@ -109,11 +104,10 @@ func ControllerPublishVolume(
 	}
 
 	req := &csi.ControllerPublishVolumeRequest{
-		Version:        version,
-		VolumeId:       volumeID,
-		VolumeMetadata: volumeMetadata,
-		NodeId:         nodeID,
-		Readonly:       readonly,
+		Version:      version,
+		VolumeHandle: volumeID,
+		NodeId:       nodeID,
+		Readonly:     readonly,
 	}
 
 	res, err := c.ControllerPublishVolume(ctx, req, callOpts...)
@@ -158,8 +152,7 @@ func ControllerUnpublishVolume(
 	ctx context.Context,
 	c csi.ControllerClient,
 	version *csi.Version,
-	volumeID *csi.VolumeID,
-	volumeMetadata *csi.VolumeMetadata,
+	volumeID *csi.VolumeHandle,
 	nodeID *csi.NodeID,
 	callOpts ...grpc.CallOption) error {
 
@@ -172,10 +165,9 @@ func ControllerUnpublishVolume(
 	}
 
 	req := &csi.ControllerUnpublishVolumeRequest{
-		Version:        version,
-		VolumeId:       volumeID,
-		VolumeMetadata: volumeMetadata,
-		NodeId:         nodeID,
+		Version:      version,
+		VolumeHandle: volumeID,
+		NodeId:       nodeID,
 	}
 
 	res, err := c.ControllerUnpublishVolume(ctx, req, callOpts...)
@@ -327,8 +319,7 @@ func NodePublishVolume(
 	ctx context.Context,
 	c csi.NodeClient,
 	version *csi.Version,
-	volumeID *csi.VolumeID,
-	volumeMetadata *csi.VolumeMetadata,
+	volumeID *csi.VolumeHandle,
 	publishVolumeInfo *csi.PublishVolumeInfo,
 	targetPath string,
 	volumeCapability *csi.VolumeCapability,
@@ -353,8 +344,7 @@ func NodePublishVolume(
 
 	req := &csi.NodePublishVolumeRequest{
 		Version:           version,
-		VolumeId:          volumeID,
-		VolumeMetadata:    volumeMetadata,
+		VolumeHandle:      volumeID,
 		PublishVolumeInfo: publishVolumeInfo,
 		TargetPath:        targetPath,
 		VolumeCapability:  volumeCapability,
@@ -398,8 +388,7 @@ func NodeUnpublishVolume(
 	ctx context.Context,
 	c csi.NodeClient,
 	version *csi.Version,
-	volumeID *csi.VolumeID,
-	volumeMetadata *csi.VolumeMetadata,
+	volumeID *csi.VolumeHandle,
 	targetPath string,
 	callOpts ...grpc.CallOption) error {
 
@@ -416,10 +405,9 @@ func NodeUnpublishVolume(
 	}
 
 	req := &csi.NodeUnpublishVolumeRequest{
-		Version:        version,
-		VolumeId:       volumeID,
-		VolumeMetadata: volumeMetadata,
-		TargetPath:     targetPath,
+		Version:      version,
+		VolumeHandle: volumeID,
+		TargetPath:   targetPath,
 	}
 
 	res, err := c.NodeUnpublishVolume(ctx, req, callOpts...)

@@ -5,6 +5,7 @@ import:
   subpackages:
   - lib/go/csi
 - package: github.com/midoblgsm/ubiquity
+  version: master
   subpackages:
   - remote
   - resources
@@ -16,3 +17,9 @@ import:
 - package: google.golang.org/grpc
   subpackages:
   - metadata
+testImport:
+- package: github.com/jarcoal/httpmock
+- package: github.com/onsi/ginkgo
+  version: v1.4.0
+- package: github.com/onsi/gomega
+  version: v1.2.0

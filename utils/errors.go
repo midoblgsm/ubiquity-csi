@@ -3,7 +3,7 @@ package utils
 import (
 	"errors"
 
-	"github.com/midoblgsm/ubiquity/csi"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
 // ErrEmptyServices occurs when a Server's Services list is empty.
