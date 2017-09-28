@@ -12,11 +12,14 @@ import:
   - utils
   - utils/logs
 - package: golang.org/x/net
+  version: 0a9397675ba34b2845f758fe3cd68828369c6517
   subpackages:
   - context
 - package: google.golang.org/grpc
+  version: f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3
   subpackages:
   - metadata
+
 testImport:
 - package: github.com/jarcoal/httpmock
 - package: github.com/onsi/ginkgo
