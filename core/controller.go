@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/midoblgsm/ubiquity/csi"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/midoblgsm/ubiquity/remote"
 	"github.com/midoblgsm/ubiquity/resources"
 	"github.com/midoblgsm/ubiquity/utils"
@@ -64,6 +64,7 @@ func (c *Controller) CreateVolume(request csi.CreateVolumeRequest) (csi.CreateVo
 	//
 	in.Name = request.GetName()
 	in.Backend = request.Parameters["backend"]
+	in.Opts = opts
 	createVolumeResponse := c.Client.CreateVolume(*in)
 	if createVolumeResponse.Error != nil {
 		return csi.CreateVolumeResponse{}, createVolumeResponse.Error
@@ -149,33 +150,33 @@ func (c *Controller) Detach(request csi.ControllerUnpublishVolumeRequest) (csi.C
 func (c *Controller) ListVolumes(request csi.ListVolumesRequest) (csi.ListVolumesResponse, error) {
 	listVolumesRequest := resources.ListVolumesRequest{}
 	listVolumesResponse := c.Client.ListVolumes(listVolumesRequest)
+	c.logger.Println("List volume response", listVolumesResponse)
 	if listVolumesResponse.Error != nil {
 		return csi.ListVolumesResponse{}, listVolumesResponse.Error
 	}
-	entries := make([]*csi.ListVolumesResponse_Result_Entry, len(listVolumesResponse.Volumes))
-	var volumeInfo csi.VolumeInfo
+	reply := csi.ListVolumesResponse_Result_{}
+	reply.Result = &csi.ListVolumesResponse_Result{}
+
+	reply.Result.Entries = make([]*csi.ListVolumesResponse_Result_Entry, len(listVolumesResponse.Volumes))
+
 	for x, volume := range listVolumesResponse.Volumes {
+		reply.Result.Entries[x] = &csi.ListVolumesResponse_Result_Entry{VolumeInfo: &csi.VolumeInfo{}}
 
-		volumeInfo.Id = &volume.ID
-		volumeInfo.Metadata = &volume.Metadata
-		volumeInfo.CapacityBytes = volume.CapacityBytes
-		entries[x] = &csi.ListVolumesResponse_Result_Entry{
-			VolumeInfo: &volumeInfo,
-		}
+		c.logger.Printf("Entry %#v \n", reply.Result.Entries[x].VolumeInfo)
+		reply.Result.Entries[x].VolumeInfo.Id = &volume.VolumeID
+		reply.Result.Entries[x].VolumeInfo.Id.Values = make(map[string]string)
+		reply.Result.Entries[x].VolumeInfo.Id.Values["volumeName"] = volume.Name
+		reply.Result.Entries[x].VolumeInfo.Id.Values["backend"] = volume.Backend
+		reply.Result.Entries[x].VolumeInfo.Metadata = &volume.Metadata
+		reply.Result.Entries[x].VolumeInfo.CapacityBytes = volume.CapacityBytes
+
 	}
-	result := csi.ListVolumesResponse_Result{Entries: entries}
 
-	reply := csi.ListVolumesResponse_Result_{Result: &result}
 	return csi.ListVolumesResponse{Reply: &reply}, nil
 }
 
 func (c *Controller) ValidateCapabilities(request csi.ValidateVolumeCapabilitiesRequest) (csi.ValidateVolumeCapabilitiesResponse, error) {
-	//entries := make([]*csi.ListVolumesResponse_Result_Entry, len(listResponse.Volumes))
-	//for x, volume := range listResponse.Volumes {
-	//	entries[x] = &csi.ListVolumesResponse_Result_Entry{
-	//		VolumeInfo: volume,
-	//	}
-	//}
+
 	return csi.ValidateVolumeCapabilitiesResponse{}, nil
 }
 

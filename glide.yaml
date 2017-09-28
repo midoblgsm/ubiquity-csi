@@ -1,9 +1,11 @@
 package: github.com/midoblgsm/ubiquity-csi
 import:
 - package: github.com/BurntSushi/toml
+- package: github.com/container-storage-interface/spec
+  subpackages:
+  - lib/go/csi
 - package: github.com/midoblgsm/ubiquity
   subpackages:
-  - csi
   - remote
   - resources
   - utils
@@ -12,3 +14,5 @@ import:
   subpackages:
   - context
 - package: google.golang.org/grpc
+  subpackages:
+  - metadata

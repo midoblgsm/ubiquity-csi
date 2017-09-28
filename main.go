@@ -275,7 +275,11 @@ func (s *sp) ControllerGetCapabilities(
 ////////////////////////////////////////////////////////////////////////////////
 //                             Identity Service                               //
 ////////////////////////////////////////////////////////////////////////////////
-
+// Server API for Identity service
+//type IdentityServer interface {
+//	GetSupportedVersions(context.Context, *GetSupportedVersionsRequest) (*GetSupportedVersionsResponse, error)
+//	GetPluginInfo(context.Context, *GetPluginInfoRequest) (*GetPluginInfoResponse, error)
+//}
 func (s *sp) GetSupportedVersions(
 	ctx context.Context,
 	req *csi.GetSupportedVersionsRequest) (
@@ -303,7 +307,15 @@ func (s *sp) GetPluginInfo(
 ////////////////////////////////////////////////////////////////////////////////
 //                                Node Service                                //
 ////////////////////////////////////////////////////////////////////////////////
-
+// Server API for Node service
+//
+//type NodeServer interface {
+//	NodePublishVolume(context.Context, *NodePublishVolumeRequest) (*NodePublishVolumeResponse, error)
+//	NodeUnpublishVolume(context.Context, *NodeUnpublishVolumeRequest) (*NodeUnpublishVolumeResponse, error)
+//	GetNodeID(context.Context, *GetNodeIDRequest) (*GetNodeIDResponse, error)
+//	ProbeNode(context.Context, *ProbeNodeRequest) (*ProbeNodeResponse, error)
+//	NodeGetCapabilities(context.Context, *NodeGetCapabilitiesRequest) (*NodeGetCapabilitiesResponse, error)
+//}
 func (s *sp) NodePublishVolume(
 	ctx context.Context,
 	req *csi.NodePublishVolumeRequest) (

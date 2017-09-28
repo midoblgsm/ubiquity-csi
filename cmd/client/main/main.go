@@ -791,6 +791,7 @@ func listVolumes(
 				version,
 				maxEntries,
 				tok)
+
 			if err != nil {
 				cherrs <- err
 				return
