@@ -49,6 +49,7 @@ func NewControllerWithClient(logger *log.Logger, client resources.StorageClient,
 func (c *Controller) CreateVolume(request csi.CreateVolumeRequest) (csi.CreateVolumeResponse, error) {
 	c.logger.Printf("Entering-controller-create-volume")
 	defer c.logger.Printf("Exiting-controller-create-volume")
+	c.logger.Printf("CSI-create-volume-request-%#v\n", request)
 	in := &resources.CreateVolumeRequest{}
 	opts := make(map[string]string)
 	//// set the volume size
@@ -67,7 +68,9 @@ func (c *Controller) CreateVolume(request csi.CreateVolumeRequest) (csi.CreateVo
 	in.Name = request.GetName()
 	in.Backend = request.Parameters["backend"]
 	in.Metadata = opts
+	c.logger.Printf("ubiquity-create-volume-request-%#v\n", in)
 	createVolumeResponse := c.Client.CreateVolume(*in)
+	c.logger.Printf("ubiquity-create-volume-response-%#v\n", createVolumeResponse)
 	if createVolumeResponse.Error != nil {
 		c.logger.Printf("error-create-volume-%#v", createVolumeResponse.Error)
 		return csi.CreateVolumeResponse{}, createVolumeResponse.Error
@@ -78,24 +81,28 @@ func (c *Controller) CreateVolume(request csi.CreateVolumeRequest) (csi.CreateVo
 	volumeInfo := csi.VolumeInfo{CapacityBytes: capacity.LimitBytes,
 		Handle: &handle,
 	}
-	return csi.CreateVolumeResponse{
+	csiResponse := csi.CreateVolumeResponse{
 		Reply: &csi.CreateVolumeResponse_Result_{
 			Result: &csi.CreateVolumeResponse_Result{
 				VolumeInfo: &volumeInfo,
 			},
 		},
-	}, nil
+	}
+	c.logger.Printf("CSI-create-volume-response-%#v\n", csiResponse)
+	return csiResponse, nil
 
 }
 
 //TODO implement this method
 func (c *Controller) DeleteVolume(request csi.DeleteVolumeRequest) (csi.DeleteVolumeResponse, error) {
-
+	c.logger.Printf("Entering-controller-delete-volume")
+	defer c.logger.Printf("Exiting-controller-delete-volume")
 	return csi.DeleteVolumeResponse{}, nil
 }
 
 func (c *Controller) Attach(request csi.ControllerPublishVolumeRequest) (csi.ControllerPublishVolumeResponse, error) {
-	//
+	c.logger.Printf("Entering-controller-attach-volume")
+	defer c.logger.Printf("Exiting-controller-attach-volume")
 	nid := request.GetNodeId()
 	if nid == nil {
 		//	// INVALID_NODE_ID
@@ -118,6 +125,8 @@ func (c *Controller) Attach(request csi.ControllerPublishVolumeRequest) (csi.Con
 }
 
 func (c *Controller) Detach(request csi.ControllerUnpublishVolumeRequest) (csi.ControllerUnpublishVolumeResponse, error) {
+	c.logger.Printf("Entering-controller-detach-volume")
+	defer c.logger.Printf("Exiting-controller-detach-volume")
 	nid := request.GetNodeId()
 	if nid == nil {
 		//	// INVALID_NODE_ID
@@ -140,12 +149,16 @@ func (c *Controller) Detach(request csi.ControllerUnpublishVolumeRequest) (csi.C
 }
 
 func (c *Controller) ListVolumes(request csi.ListVolumesRequest) (csi.ListVolumesResponse, error) {
+	c.logger.Printf("Entering-controller-list-volumes")
+	defer c.logger.Printf("Exiting-controller-list-volumes")
+	c.logger.Printf("CSI-list-volumes-request: %#v\n", request)
 	listVolumesRequest := resources.ListVolumesRequest{}
 	listVolumesResponse := c.Client.ListVolumes(listVolumesRequest)
-	c.logger.Println("List volume response", listVolumesResponse)
+	c.logger.Println("ubiquity-list-volumes-response: %#v", listVolumesResponse)
 	if listVolumesResponse.Error != nil {
 		return csi.ListVolumesResponse{}, listVolumesResponse.Error
 	}
+
 	reply := csi.ListVolumesResponse_Result_{}
 	reply.Result = &csi.ListVolumesResponse_Result{}
 
@@ -157,11 +170,12 @@ func (c *Controller) ListVolumes(request csi.ListVolumesRequest) (csi.ListVolume
 		c.logger.Printf("Entry %#v \n", reply.Result.Entries[x].VolumeInfo)
 		volumeHandle := csi.VolumeHandle{}
 		volumeHandle.Id = volume.Name
-		volumeHandle.Metadata = volume.Metadata
+		volumeHandle.Metadata = volume.Metadata.Values
 		reply.Result.Entries[x].VolumeInfo.Handle = &volumeHandle
 		reply.Result.Entries[x].VolumeInfo.CapacityBytes = volume.CapacityBytes
 
 	}
+	c.logger.Println("csi-list-volumes-reply: %#v", reply)
 
 	return csi.ListVolumesResponse{Reply: &reply}, nil
 }

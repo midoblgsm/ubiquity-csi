@@ -50,7 +50,7 @@ go install github.com/onsi/gomega
 
 Run the tests:
 ```bash
-./scripts/run-unit-tests
+./scripts/run_units.sh
 ```
 
 
@@ -66,7 +66,7 @@ Then you can use it to execute commands like:
 
 ```bash
 # create a volume named testVolume
-./bin/ubiquity-csi-client createvolume -endpoint tcp://127.0.0.1:9595 -o nfs -limitBytes 512 -params \"{\"volumeName\":\"\testVolume\",\"backend\":\"localhost\"}\" -service gold -t xfs -version "0.0.0” testVolume
+./bin/ubiquity-csi-client createvolume -endpoint tcp://127.0.0.1:9595 -limitBytes 512 -o nfs -requiredBytes 512 -service gold -t xfs -version 0.0.0 -params {\"backend\":\"localhost\"} testVolume
 # or List the existing volumes
 ./bin/ubiquity-csi-client listvolumes -endpoint tcp://127.0.0.1:9595
 
